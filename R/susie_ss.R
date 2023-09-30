@@ -61,7 +61,9 @@ susie_suff_stat = function (XtX, Xty, yty, n,
                             min_abs_corr = 0.5, tol = 1e-3,
                             verbose = FALSE, track_fit = FALSE,
                             check_input = FALSE, refine = FALSE,
-                            check_prior = FALSE, n_purity = 100, ...) {
+                            check_prior = FALSE, n_purity = 100, 
+                            correct_zR_discrepancy = FALSE,
+                            ...) {
 
   # Check for use of arguments that are now deprecated.
   args <- list(...)
@@ -171,7 +173,8 @@ susie_suff_stat = function (XtX, Xty, yty, n,
 
   # Initialize susie fit.
   s = init_setup(0,p,L,scaled_prior_variance,residual_variance,prior_weights,
-                 null_weight,yty/(n-1),standardize)
+                 null_weight,yty/(n-1),standardize,
+                 correct_zR_discrepancy)
   s$Xr = NULL
   s$XtXr = rep(0,p)
 
@@ -226,21 +229,27 @@ susie_suff_stat = function (XtX, Xty, yty, n,
       }
     }
 
-    if (verbose)
-      print(paste0("objective:",get_objective_ss(XtX,Xty,s,yty,n)))
+    if (!s$force_iterate) {
+      if (verbose)
+        print(paste0("objective:",get_objective_ss(XtX,Xty,s,yty,n)))
 
-    # Compute objective before updating residual variance because part
-    # of the objective s$kl has already been computed under the
-    # residual variance before the update.
-    elbo[i+1] = get_objective_ss(XtX,Xty,s,yty,n)
-    if(is.infinite(elbo[i+1])){
-      stop('The objective becomes infinite. Please check the input.')
-    }
+      # Compute objective before updating residual variance because part
+      # of the objective s$kl has already been computed under the
+      # residual variance before the update.
+     elbo[i+1] = get_objective_ss(XtX,Xty,s,yty,n)
+      if(is.infinite(elbo[i+1])){
+        stop('The objective becomes infinite. Please check the input.')
+      }
 
-    if ((elbo[i+1] - elbo[i]) < tol) {
-      s$converged = TRUE
-      break
-    }
+      if ((elbo[i+1] - elbo[i]) < tol) {
+        s$converged = TRUE
+        break
+      }
+    } else {
+      # skip elbo check if force_iterate is TRUE
+      # This is when IBSS is still in the process of resolving zR discrepancy
+      elbo[i+1] = -Inf
+    } 
     if (estimate_residual_variance) {
       est_sigma2 = estimate_residual_variance_ss(XtX,Xty,s,yty,n)
       if (est_sigma2 < 0)
@@ -251,11 +260,12 @@ susie_suff_stat = function (XtX, Xty, yty, n,
         print(paste0("objective:",get_objective_ss(XtX,Xty,s,yty,n)))
     }
   }
-  elbo = elbo[2:(i+1)] # Remove first (infinite) entry, and trailing NAs.
+  elbo = elbo[!is.infinite(elbo) & !is.na(elbo)]
   s$elbo = elbo
   s$niter = i
 
   if (is.null(s$converged)) {
+    # FIXME: if correct_zR_discrepancy works out, we should change this message accordingly
     warning(paste("IBSS algorithm did not converge in",max_iter,"iterations!
                   Please check consistency between summary statistics and LD matrix.
                   See https://stephenslab.github.io/susieR/articles/susierss_diagnostic.html"))
@@ -333,6 +343,7 @@ susie_suff_stat = function (XtX, Xty, yty, n,
             null_weight = null_weight, standardize = standardize,
             coverage = coverage, min_abs_corr = min_abs_corr, tol = tol,
             verbose = FALSE, track_fit = FALSE, check_input = FALSE,
+            correct_zR_discrepancy = correct_zR_discrepancy, 
             refine = FALSE)
         sinit2 = s2[c("alpha","mu","mu2")]
         class(sinit2) = "susie"
@@ -348,7 +359,9 @@ susie_suff_stat = function (XtX, Xty, yty, n,
             r_tol = r_tol, max_iter = max_iter, null_weight = null_weight,
             standardize = standardize, coverage = coverage,
             min_abs_corr = min_abs_corr, tol = tol, verbose = FALSE,
-            track_fit = FALSE, check_input = FALSE, refine = FALSE)
+            track_fit = FALSE, check_input = FALSE, 
+            correct_zR_discrepancy = correct_zR_discrepancy, 
+            refine = FALSE)
         m = c(m,list(s3))
       }
       if(length(m) == 0){

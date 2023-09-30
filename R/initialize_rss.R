@@ -1,6 +1,7 @@
 # Set default susie initialization.
 init_setup_rss = function(p, L, prior_variance, residual_variance,
-                          prior_weights, null_weight) {
+                          prior_weights, null_weight, 
+                          correct_zR_discrepancy=FALSE) {
   if (!is.numeric(prior_variance) || prior_variance < 0)
     stop("Prior variance should be positive number.")
   if(!is.null(residual_variance) &&
@@ -34,6 +35,11 @@ init_setup_rss = function(p, L, prior_variance, residual_variance,
     s$null_index = 0
   else
     s$null_index = p
+  s$correct_zR_discrepancy = list(to_correct = correct_zR_discrepancy, 
+                                  outlier_index = vector(),
+                                  is_init = TRUE)
+  # force IBSS to iterate initially, until zR discrepancies are corrected
+  s$force_iterate = ifelse(correct_zR_discrepancy,TRUE,FALSE)
   class(s) = "susie"
   return(s)
 }

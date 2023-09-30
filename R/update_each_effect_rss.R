@@ -9,6 +9,7 @@
 #   compare likelihood between current estimate and zero the null
 # 
 #' @importFrom Matrix diag
+# This function is only used in susie_rss_lambda
 update_each_effect_rss = function (R, z, s_init, Sigma,
                                    estimate_prior_variance = FALSE,
                                    estimate_prior_method = "optim",

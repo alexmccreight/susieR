@@ -191,7 +191,8 @@ susie_rss = function (z, R, n, bhat, shat, var_y,
                       z_ld_weight = 0,
                       estimate_residual_variance = FALSE,
                       prior_variance = 50,
-                      check_prior = TRUE, ...) {
+                      check_prior = TRUE, 
+                      correct_zR_discrepancy = FALSE, ...) {
 
   if (estimate_residual_variance)
     warning_message("For estimate_residual_variance = TRUE, please check ",
@@ -266,7 +267,10 @@ susie_rss = function (z, R, n, bhat, shat, var_y,
     s = susie_suff_stat(XtX = R,Xty = z,n = 2,yty = 1,
                         scaled_prior_variance = prior_variance,
                         estimate_residual_variance = estimate_residual_variance,
-                        standardize = FALSE,check_prior = check_prior,...)
+                        standardize = FALSE,
+                        check_prior = check_prior,
+                        correct_zR_discrepancy = correct_zR_discrepancy,
+                        ...)
   } else {
 
     # The sample size (n) is provided, so use PVE-adjusted z-scores.
@@ -287,8 +291,9 @@ susie_rss = function (z, R, n, bhat, shat, var_y,
     }
     s = susie_suff_stat(XtX = XtX,Xty = Xty,n = n,yty = (n-1)*var_y,
                         estimate_residual_variance = estimate_residual_variance,
-                        check_prior = check_prior,...)
+                        check_prior = check_prior,
+                        correct_zR_discrepancy = correct_zR_discrepancy,
+                        ...)
   }
   return(s)
 }
-

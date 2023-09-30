@@ -39,7 +39,7 @@ update_each_effect_ss = function (XtX, Xty, s_init,
           if (length(c_index)>0) {
             # Detect outlier against existing non-zero effect variables
             # FIXME: detect_zR_discrepancy expects z and R inputs. Here it is only correct if susie_rss(z=z,R=R,n=NULL,var_y=NULL)
-            outlier_index = detect_zR_discrepancy(c_index, XtR, XtX, r2=0.6, p=1E-4)
+            outlier_index = detect_zR_discrepancy(c_index, XtR / sqrt(attr(XtX,"d"), XtX, r2=0.6, p=1E-4)
             # Apply correction
             if (outlier_index>0) {
               s$correct_zR_discrepancy$outlier_index = union(s$correct_zR_discrepancy$outlier_index, outlier_index)

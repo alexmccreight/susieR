@@ -79,14 +79,19 @@ update_each_effect_ss = function (XtX, Xty, s_init,
 }
 
 detect_zR_discrepancy <- function(c_index, z, R, r2=0.6, p=1E-4) {
+
+  # DENTIST-S test, $S(\hat{z}_1, \hat{z}_2, r_{12}) = \frac{(\hat{z}_1 - r_{12}\hat{z}_2)^2}{1-r_{12}^2} \sim \chi^2_{(1)}$
+  # FIXME: we need to apply some regularization to this R matrix beforehand ... to prevent 1 - 1 in the test below.
+  dentist_s = function(z1,z2,r12) (z1 - r12 * z2)^2 / (1 - ifelse(r12==1, 1E-8, r12^2))
+
   # every time here I want to just capture one outlier
   chisq_cutoff = qchisq(1-p, df = 1)
   max_index = which.max(abs(z))
   r = R[c(max_index, c_index), c(max_index, c_index)]
   z_test = z[c_index]
   z_max = z[max_index]
-  # DENTIST-S test, $S(\hat{z}_1, \hat{z}_2, r_{12}) = \frac{(\hat{z}_1 - r_{12}\hat{z}_2)^2}{1-r_{12}^2} \sim \chi^2_{(1)}$
-  stats_filter = sapply(1:length(z_test), function(i) ((z_max - r[1, i+1] * z_test[i])^2 / (1 - r[1, i+1]^2)))
+
+  stats_filter = sapply(1:length(z_test), function(i) dentist_s(z_max, z_test[i], r[1, i+1]))
   stats_filter = any(stats_filter > chisq_cutoff)
   r2_filter = sapply(1:length(z_test), function(i) r[1, i+1]^2)
   r2_filter = any(r2_filter > r2)

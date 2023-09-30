@@ -255,6 +255,8 @@ susie_plot = function (model, y, add_bar = FALSE, pos = NULL, b = NULL,
 #'
 #' @param pos Indices of variables to plot. If \code{pos = NULL} all
 #'   variables are plotted.
+#' 
+#' @param create_gif Generate a GIF file for all iterations combined. Default to FALSE.
 #'
 #' @examples
 #' set.seed(1)
@@ -279,7 +281,7 @@ susie_plot = function (model, y, add_bar = FALSE, pos = NULL, b = NULL,
 #'
 #' @export
 #'
-susie_plot_iteration = function (model, L, file_prefix, pos = NULL) {
+susie_plot_iteration = function (model, L, file_prefix, pos = NULL, create_gif = FALSE) {
   get_layer = function (obj, k, idx, vars) {
     alpha = melt(obj$alpha[1:k,vars,drop = FALSE])
     colnames(alpha) = c("L","variables","alpha")
@@ -305,7 +307,7 @@ susie_plot_iteration = function (model, L, file_prefix, pos = NULL) {
   }
   dev.off()
   format = ".pdf"
-  if (!is.null(model$trace)) {
+  if (!is.null(model$trace) && create_gif) {
     cmd = paste("convert -delay 30 -loop 0 -density 300 -dispose previous",
                 paste0(file_prefix,".pdf"),
                 "\\( -clone 0 -set delay 300 \\) -swap 0 +delete",

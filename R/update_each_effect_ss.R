@@ -38,7 +38,6 @@ update_each_effect_ss = function (XtX, Xty, s_init,
           c_index = get_non_zero_effects_proxy(s$alpha) 
           if (length(c_index)>0) {
             # Detect outlier against existing non-zero effect variables
-            # FIXME: detect_zR_discrepancy expects z and R inputs. Here it is only correct if susie_rss(z=z,R=R,n=NULL,var_y=NULL)
             outlier_index = detect_zR_discrepancy(c_index, XtR / sqrt(attr(XtX,"d")), XtX, r2=0.6, p=1E-4)
             # Apply correction
             if (outlier_index>0) {
@@ -46,14 +45,6 @@ update_each_effect_ss = function (XtX, Xty, s_init,
               s$pi[s$correct_zR_discrepancy$outlier_index] = 0
               s$pi = s$pi / sum(s$pi)
             }
-          }
-          # Check if corrections are done, and if so let IBSS proceed as usual with convergence check
-          if (l==L && setequal(s$correct_zR_discrepancy$outlier_index,
-                               s_init$correct_zR_discrepancy$outlier_index)) {
-            # cat(paste("Causal variables", paste(c_index, collapse=" "), "\n")
-            # cat(paste("Removed mismatch", paste(s$correct_zR_discrepancy$outlier_index, collapse=" "), "\n"))
-            s$correct_zR_discrepancy$to_correct = FALSE
-            s$force_iterate = FALSE
           }
         }
       }
@@ -73,12 +64,29 @@ update_each_effect_ss = function (XtX, Xty, s_init,
                                   res$alpha * res$mu,res$alpha * res$mu2)
       s$XtXr = s$XtXr + XtX %*% (s$alpha[l,] * s$mu[l,])
     }
+
+    if (s$correct_zR_discrepancy$to_correct) {
+      # Check if corrections are done, and if so let IBSS proceed as usual with convergence check
+      # cat(paste("Removed mismatch", paste(s$correct_zR_discrepancy$outlier_index, collapse=" "), "\n"))
+      if (setequal(s$correct_zR_discrepancy$outlier_index,
+                   s_init$correct_zR_discrepancy$outlier_index)) {
+        s$correct_zR_discrepancy$outlier_stable_count = s$correct_zR_discrepancy$outlier_stable_count + 1
+        if (s$correct_zR_discrepancy$outlier_stable_count >= s$correct_zR_discrepancy$outlier_stabilize) {
+          # Wrap it up
+          # cat("zR mismatch correction done!\n")
+          s$correct_zR_discrepancy$to_correct = FALSE
+          s$force_iterate = FALSE
+        }
+      } else {
+        s$correct_zR_discrepancy$outlier_stable_count = 0 
+      }
+    }
   }
   s$XtXr = unname(as.matrix(s$XtXr))
   return(s)
 }
 
-detect_zR_discrepancy <- function(c_index, z, R, r2=0.6, p=1E-4) {
+detect_zR_discrepancy <- function(c_index, z, Rcov, r2=0.6, p=1E-4) {
 
   # DENTIST-S test, $S(\hat{z}_1, \hat{z}_2, r_{12}) = \frac{(\hat{z}_1 - r_{12}\hat{z}_2)^2}{1-r_{12}^2} \sim \chi^2_{(1)}$
   # FIXME: we need to apply some regularization to this R matrix beforehand ... to prevent 1 - 1 in the test below.
@@ -87,13 +95,16 @@ detect_zR_discrepancy <- function(c_index, z, R, r2=0.6, p=1E-4) {
   # every time here I want to just capture one outlier
   chisq_cutoff = qchisq(1-p, df = 1)
   max_index = which.max(abs(z))
-  r = R[c(max_index, c_index), c(max_index, c_index)]
+  # Find the nearest correlation matrix from input
+  # Because here our input is covariance
+  # FIXME: is this correct?
+  R = cov2cor(Rcov[c(max_index, c_index), c(max_index, c_index)])
   z_test = z[c_index]
   z_max = z[max_index]
 
-  stats_filter = sapply(1:length(z_test), function(i) dentist_s(z_max, z_test[i], r[1, i+1]))
+  stats_filter = sapply(1:length(z_test), function(i) dentist_s(z_max, z_test[i], R[1, i+1]))
   stats_filter = any(stats_filter > chisq_cutoff)
-  r2_filter = sapply(1:length(z_test), function(i) r[1, i+1]^2)
+  r2_filter = sapply(1:length(z_test), function(i) R[1, i+1]^2)
   r2_filter = any(r2_filter > r2)
   if(stats_filter && r2_filter) {
     return (max_index)
@@ -103,9 +114,10 @@ detect_zR_discrepancy <- function(c_index, z, R, r2=0.6, p=1E-4) {
 }
 
 # KL Divergence
-kl_divergence_p_q <- function(p, q, epsilon=1E-10) {
-  q <- q + epsilon
-  return(sum(ifelse(p == 0, 0, p * (log(p+epsilon)-log(q)))))
+kl_divergence_p_q <- function(p, q) {
+  p[which(p < .Machine$double.xmin)] <- .Machine$double.xmin
+  q[which(q < .Machine$double.xmin)] <- .Machine$double.xmin
+  sum(p * (log(p)-log(q)))
 }
 
 # Jensen-Shannon Divergence
@@ -114,16 +126,16 @@ js_divergence_p_q <- function(p, q) {
   return((kl_divergence_p_q(p, m) + kl_divergence_p_q(q, m)) / 2)
 }
 
-get_non_zero_effects_proxy = function(alpha, js_tol=1E-4) {
-  test_flat <- function(p0, js_tol) {
+get_non_zero_effects_proxy = function(alpha, tol=1E-4) {
+  test_flat <- function(p0, tol) {
     p <- p0[p0 != 0]
     q <- 1 / length(p)
     js <- js_divergence_p_q(p, q)
-    return(js < js_tol)
+    return(js < tol)
   }
 
   # effects to drop if alpha is flat
-  to_drop <- which(apply(alpha, 1, test_flat, js_tol=js_tol))
+  to_drop <- which(apply(alpha, 1, test_flat, tol=tol))
 
   if (length(to_drop)) alpha = alpha[-to_drop,,drop=F]
   max_indices = apply(alpha, MARGIN = 1, FUN = which.max)

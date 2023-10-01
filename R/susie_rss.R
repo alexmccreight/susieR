@@ -295,5 +295,9 @@ susie_rss = function (z, R, n, bhat, shat, var_y,
                         correct_zR_discrepancy = correct_zR_discrepancy,
                         ...)
   }
+  if (correct_zR_discrepancy) {
+    s$zR_outliers = s$correct_zR_discrepancy$outlier_index
+    s$correct_zR_discrepancy = NULL
+  }
   return(s)
 }

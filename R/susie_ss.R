@@ -208,7 +208,7 @@ susie_suff_stat = function (XtX, Xty, yty, n,
 
   # Initialize elbo to NA.
   elbo = rep(as.numeric(NA),max_iter + 1)
-  elbo[1] = -Inf;
+  elbo[1] = -Inf
   tracking = list()
 
   bhat = (1/attr(XtX,"d")) * Xty
@@ -240,7 +240,6 @@ susie_suff_stat = function (XtX, Xty, yty, n,
       if(is.infinite(elbo[i+1])){
         stop('The objective becomes infinite. Please check the input.')
       }
-
       if ((elbo[i+1] - elbo[i]) < tol) {
         s$converged = TRUE
         break

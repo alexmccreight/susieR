@@ -88,7 +88,8 @@ init_setup = function (n, p, L, scaled_prior_variance, residual_variance,
   s$correct_zR_discrepancy = list(to_correct = correct_zR_discrepancy, 
                                   outlier_index = vector(),
                                   is_init = TRUE,
-                                  outlier_stabilize = 10,
+                                  # in case some iterations were trapped to local
+                                  outlier_stabilize = 5,
                                   outlier_stable_count = 0)
   # force IBSS to iterate
   s$force_iterate = FALSE

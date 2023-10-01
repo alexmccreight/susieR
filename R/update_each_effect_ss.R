@@ -90,11 +90,19 @@ detect_zR_discrepancy <- function(c_index, z, Rcov, r2=0.6, p=1E-4) {
 
   # DENTIST-S test, $S(\hat{z}_1, \hat{z}_2, r_{12}) = \frac{(\hat{z}_1 - r_{12}\hat{z}_2)^2}{1-r_{12}^2} \sim \chi^2_{(1)}$
   # FIXME: we need to apply some regularization to this R matrix beforehand ... to prevent 1 - 1 in the test below.
-  dentist_s = function(z1,z2,r12) (z1 - r12 * z2)^2 / (1 - ifelse(r12==1, 1E-8, r12^2))
+  dentist_s = function(z1,z2,r12) {
+    (z1 - r12 * z2)^2 / (1 - ifelse(r12==1, 1E-8, r12^2))
+  }
+  is_sign_flip = function(z1,z2,r12) {
+    ifelse(sign(z1) * sign(z2) * sign(r12) < 0, TRUE, FALSE)
+  }
 
   # every time here I want to just capture one outlier
   chisq_cutoff = qchisq(1-p, df = 1)
   max_index = which.max(abs(z))
+  if (max_index %in% c_index) {
+    return(-1)
+  }
   # Find the nearest correlation matrix from input
   # Because here our input is covariance
   # FIXME: is this correct?
@@ -105,7 +113,8 @@ detect_zR_discrepancy <- function(c_index, z, Rcov, r2=0.6, p=1E-4) {
   stats_filter = sapply(1:length(z_test), function(i) dentist_s(z_max, z_test[i], R[1, i+1]))
   stats_filter = any(stats_filter > chisq_cutoff)
   r2_filter = sapply(1:length(z_test), function(i) R[1, i+1]^2)
-  r2_filter = any(r2_filter > r2)
+  sign_filter = sapply(1:length(z_test), function(i) is_sign_flip(z_max, z_test[i], R[1, i+1]))
+  r2_filter = any((r2_filter > r2 | sign_filter))
   if(stats_filter && r2_filter) {
     return (max_index)
   } else {

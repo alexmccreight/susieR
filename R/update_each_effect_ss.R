@@ -43,7 +43,7 @@ update_each_effect_ss = function (XtX, Xty, s_init,
             if (outlier_index>0) {
               s$correct_zR_discrepancy$outlier_index = union(s$correct_zR_discrepancy$outlier_index, outlier_index)
               s$pi[s$correct_zR_discrepancy$outlier_index] = 0
-              s$pi = s$pi / sum(s$pi)
+              s$pi[s$pi>0]= s$pi[s$pi>0] / sum(s$pi)
             }
           }
         }

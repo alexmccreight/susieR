@@ -298,6 +298,17 @@ susie_rss = function (z, R, n, bhat, shat, var_y,
   if (correct_zR_discrepancy) {
     s$zR_outliers = s$correct_zR_discrepancy$outlier_index
     s$correct_zR_discrepancy = NULL
+    # Renormalize alpha matrix
+    # FIXME: This is a bit ugly
+    process_alpha <- function(alpha_i) {
+      min_val <- min(alpha_i[alpha_i > 0])
+      alpha_i[alpha_i == 0] <- min_val
+      alpha_i <- alpha_i / sum(alpha_i)
+      return(alpha_i)
+    }
+    s$alpha <- t(apply(s$alpha, 1, process_alpha))
+    s$pip <- susie_get_pip(s,prune_by_cs = FALSE)
+    names(s$pip) <- colnames(s$alpha)
   }
   return(s)
 }

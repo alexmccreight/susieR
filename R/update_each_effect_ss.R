@@ -38,7 +38,9 @@ update_each_effect_ss = function (XtX, Xty, s_init,
           c_index = get_non_zero_effects_proxy(s$alpha) 
           if (length(c_index)>0) {
             # Detect outlier against existing non-zero effect variables
-            outlier_index = detect_zR_discrepancy(c_index, XtR / sqrt(attr(XtX,"d")), XtX, r2=0.6, p=1E-4)
+            outlier_index = detect_zR_discrepancy(c_index, s$correct_zR_discrepancy$outlier_index, 
+                                                  XtR / sqrt(attr(XtX,"d")), XtX, r2=0.6, p=1E-4)
+            # cat(paste("New outliers", paste(outlier_index), "for l =", l, "\n\n"))
             # Apply correction
             if (outlier_index>0) {
               s$correct_zR_discrepancy$outlier_index = union(s$correct_zR_discrepancy$outlier_index, outlier_index)
@@ -86,8 +88,9 @@ update_each_effect_ss = function (XtX, Xty, s_init,
   return(s)
 }
 
-detect_zR_discrepancy <- function(c_index, z, Rcov, r2=0.6, p=1E-4) {
-
+detect_zR_discrepancy <- function(c_index, exclude_index, z, Rcov, r2=0.6, p=1E-4) {
+  # > qchisq(1-1E-4,df=1)
+  # [1] 15.13671
   # DENTIST-S test, $S(\hat{z}_1, \hat{z}_2, r_{12}) = \frac{(\hat{z}_1 - r_{12}\hat{z}_2)^2}{1-r_{12}^2} \sim \chi^2_{(1)}$
   dentist_s = function(z1,z2,r12) {
     (z1 - r12 * z2)^2 / (1 - r12^2)
@@ -96,9 +99,14 @@ detect_zR_discrepancy <- function(c_index, z, Rcov, r2=0.6, p=1E-4) {
     ifelse(sign(z1) * sign(z2) * sign(r12) < 0, TRUE, FALSE)
   }
 
+  # cat(paste("Non-zero set", paste(c_index, collapse=" "), "\n"))
   # every time here I want to just capture one outlier
   chisq_cutoff = qchisq(1-p, df = 1)
-  max_index = which.max(abs(z))
+  x = abs(z)
+  if (length(exclude_index)) {
+    x[exclude_index] = -Inf
+  }
+  max_index = which.max(x)
   if (max_index %in% c_index) {
     return(-1)
   }
@@ -111,9 +119,13 @@ detect_zR_discrepancy <- function(c_index, z, Rcov, r2=0.6, p=1E-4) {
   z_test = z[c_index]
   z_max = z[max_index]
   stats_filter = sapply(1:length(z_test), function(i) dentist_s(z_max, z_test[i], R[1, i+1]))
+  # cat(paste("\t- Test index:", max_index, "\n"))
+  # cat(paste("\t- Chisq statistics", paste(round(stats_filter,3), collapse=" "), "\n"))
   stats_filter = any(stats_filter > chisq_cutoff)
   r2_filter = sapply(1:length(z_test), function(i) R[1, i+1]^2)
+  # cat(paste("\t- r2", paste(round(r2_filter,4), collapse=" "), "\n"))
   sign_filter = sapply(1:length(z_test), function(i) is_sign_flip(z_max, z_test[i], R[1, i+1]))
+  # cat(paste("\t- Sign flip", paste(sign_filter, collapse=" "), "\n"))
   r2_filter = any((r2_filter > r2 | sign_filter))
   if(stats_filter && r2_filter) {
     return (max_index)

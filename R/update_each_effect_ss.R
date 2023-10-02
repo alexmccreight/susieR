@@ -22,7 +22,6 @@ update_each_effect_ss = function (XtX, Xty, s_init,
   L = nrow(s$alpha)
   if (L > 0) {
     for (l in 1:L) {
-        
       # Remove lth effect from fitted values.
       s$XtXr = s$XtXr - XtX %*% (s$alpha[l,] * s$mu[l,])
       # Compute residuals.
@@ -69,7 +68,7 @@ update_each_effect_ss = function (XtX, Xty, s_init,
 
     if (s$correct_zR_discrepancy$to_correct) {
       # Check if corrections are done, and if so let IBSS proceed as usual with convergence check
-      # cat(paste("Removed mismatch", paste(s$correct_zR_discrepancy$outlier_index, collapse=" "), "\n"))
+      # cat(paste("Removed mismatch at current iteration:", paste(s$correct_zR_discrepancy$outlier_index, collapse=" "), "\n\n"))
       if (setequal(s$correct_zR_discrepancy$outlier_index,
                    s_init$correct_zR_discrepancy$outlier_index)) {
         s$correct_zR_discrepancy$outlier_stable_count = s$correct_zR_discrepancy$outlier_stable_count + 1
@@ -107,9 +106,17 @@ detect_zR_discrepancy <- function(c_index, exclude_index, z, Rcov, r2=0.6, p=1E-
     x[exclude_index] = -Inf
   }
   max_index = which.max(x)
-  if (max_index %in% c_index) {
-    return(-1)
-  }
+  # cat(paste("\t- Test index:", max_index, "\n"))
+  # FIXME: The 3 lines of codes commented out was an earlier version
+  # where i assume that once a variant is determined causal it is not going to be considered outlier, in the current iteration
+  # Although in later iterations it can still be removed, this might not be good enough because this bad variant can stay for quite a while.
+  # However I've seen in the data that its immediately next buddy will revenge and push out the causal variant in the current iteration
+  # Any since whatever I drop its not coming back, I may end up dropping anything that stands out after the fight, leaving its weaker buddies standing at the end.
+  # which are not significant and lose power.
+  # Still all considered I would rather be safe to keep FDR low as a priority. Therefore these 3 lines are commented out.
+  #if (max_index %in% c_index) {
+  #  return(-1)
+  #}
   # Find the nearest correlation matrix from input
   # Because here our input is covariance
   # FIXME: is this correct?
@@ -119,15 +126,15 @@ detect_zR_discrepancy <- function(c_index, exclude_index, z, Rcov, r2=0.6, p=1E-
   z_test = z[c_index]
   z_max = z[max_index]
   stats_filter = sapply(1:length(z_test), function(i) dentist_s(z_max, z_test[i], R[1, i+1]))
-  # cat(paste("\t- Test index:", max_index, "\n"))
   # cat(paste("\t- Chisq statistics", paste(round(stats_filter,3), collapse=" "), "\n"))
-  stats_filter = any(stats_filter > chisq_cutoff)
+  stats_filter = (stats_filter > chisq_cutoff)
   r2_filter = sapply(1:length(z_test), function(i) R[1, i+1]^2)
   # cat(paste("\t- r2", paste(round(r2_filter,4), collapse=" "), "\n"))
+  r2_filter = (r2_filter > r2)
   sign_filter = sapply(1:length(z_test), function(i) is_sign_flip(z_max, z_test[i], R[1, i+1]))
   # cat(paste("\t- Sign flip", paste(sign_filter, collapse=" "), "\n"))
-  r2_filter = any((r2_filter > r2 | sign_filter))
-  if(stats_filter && r2_filter) {
+  combined_filter = (stats_filter & (r2_filter | sign_filter))
+  if(any(combined_filter)) {
     return (max_index)
   } else {
     return (-1)

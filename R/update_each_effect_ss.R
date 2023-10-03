@@ -41,7 +41,7 @@ update_each_effect_ss = function (XtX, Xty, s_init,
                                                   XtR / sqrt(attr(XtX,"d")), XtX, r2=0.6, p=1E-4)
             # Apply correction
             if (outlier_index>0) {
-              # cat(paste("New outliers", paste(outlier_index), "for l =", l, "\n\n"))
+              # cat(paste("\t- New outliers", paste(outlier_index), "for l =", l, "\n"))
               s$correct_zR_discrepancy$outlier_index = union(s$correct_zR_discrepancy$outlier_index, outlier_index)
               s$pi[s$correct_zR_discrepancy$outlier_index] = 0
               s$pi[s$pi>0]= s$pi[s$pi>0] / sum(s$pi)

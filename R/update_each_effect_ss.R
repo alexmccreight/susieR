@@ -39,9 +39,9 @@ update_each_effect_ss = function (XtX, Xty, s_init,
             # Detect outlier against existing non-zero effect variables
             outlier_index = detect_zR_discrepancy(c_index, s$correct_zR_discrepancy$outlier_index, 
                                                   XtR / sqrt(attr(XtX,"d")), XtX, r2=0.6, p=1E-4)
-            # cat(paste("New outliers", paste(outlier_index), "for l =", l, "\n\n"))
             # Apply correction
             if (outlier_index>0) {
+              # cat(paste("New outliers", paste(outlier_index), "for l =", l, "\n\n"))
               s$correct_zR_discrepancy$outlier_index = union(s$correct_zR_discrepancy$outlier_index, outlier_index)
               s$pi[s$correct_zR_discrepancy$outlier_index] = 0
               s$pi[s$pi>0]= s$pi[s$pi>0] / sum(s$pi)
@@ -68,7 +68,7 @@ update_each_effect_ss = function (XtX, Xty, s_init,
 
     if (s$correct_zR_discrepancy$to_correct) {
       # Check if corrections are done, and if so let IBSS proceed as usual with convergence check
-      # cat(paste("Removed mismatch at current iteration:", paste(s$correct_zR_discrepancy$outlier_index, collapse=" "), "\n\n"))
+      # cat(paste("Removed mismatch at current iteration:", paste(sort(s$correct_zR_discrepancy$outlier_index), collapse=" "), "\n\n"))
       if (setequal(s$correct_zR_discrepancy$outlier_index,
                    s_init$correct_zR_discrepancy$outlier_index)) {
         s$correct_zR_discrepancy$outlier_stable_count = s$correct_zR_discrepancy$outlier_stable_count + 1
@@ -101,6 +101,7 @@ detect_zR_discrepancy <- function(c_index, exclude_index, z, Rcov, r2=0.6, p=1E-
   # cat(paste("Non-zero set", paste(c_index, collapse=" "), "\n"))
   # every time here I want to just capture one outlier
   chisq_cutoff = qchisq(1-p, df = 1)
+  fudge_factor = 1E-4
   x = abs(z)
   if (length(exclude_index)) {
     x[exclude_index] = -Inf
@@ -120,7 +121,6 @@ detect_zR_discrepancy <- function(c_index, exclude_index, z, Rcov, r2=0.6, p=1E-
   # Find the nearest correlation matrix from input
   # Because here our input is covariance
   # FIXME: is this correct?
-  fudge_factor = 1E-4
   R = cov2cor(Rcov[c(max_index, c_index), c(max_index, c_index)]) * (1 - fudge_factor)
   diag(R) = 1
   z_test = z[c_index]

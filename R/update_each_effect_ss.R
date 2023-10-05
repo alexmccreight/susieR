@@ -34,7 +34,7 @@ update_each_effect_ss = function (XtX, Xty, s_init,
           s$correct_zR_discrepancy$is_init = FALSE
         } else {
           # Get the current existing non-zero effect variables
-          c_index = get_non_zero_effects_proxy(s$alpha) 
+          c_index = get_non_zero_effects_proxy(s$alpha, s$correct_zR_discrepancy$outlier_index) 
           if (length(c_index)>0) {
             # Detect outlier against existing non-zero effect variables
             outlier_index = detect_zR_discrepancy(c_index, s$correct_zR_discrepancy$outlier_index, 
@@ -154,7 +154,7 @@ js_divergence_p_q <- function(p, q) {
   return((kl_divergence_p_q(p, m) + kl_divergence_p_q(q, m)) / 2)
 }
 
-get_non_zero_effects_proxy = function(alpha, tol=1E-4) {
+get_non_zero_effects_proxy = function(alpha, exclude_index, tol=1E-4) {
   test_flat <- function(p0, tol) {
     p <- p0[p0 != 0]
     q <- 1 / length(p)
@@ -166,6 +166,7 @@ get_non_zero_effects_proxy = function(alpha, tol=1E-4) {
   to_drop <- which(apply(alpha, 1, test_flat, tol=tol))
 
   if (length(to_drop)) alpha = alpha[-to_drop,,drop=F]
-  max_indices = apply(alpha, MARGIN = 1, FUN = which.max)
+  alpha [, exclude_index] = -Inf
+  max_indices = apply(alpha, 1, FUN = which.max)
   return(unique(max_indices))
 }

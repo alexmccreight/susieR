@@ -15,6 +15,7 @@ susie_rss(
   estimate_residual_variance = FALSE,
   prior_variance = 50,
   check_prior = TRUE,
+  correct_zR_discrepancy = FALSE,
   ...
 )
 }

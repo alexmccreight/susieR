@@ -16,7 +16,7 @@ susie_plot(
   ...
 )
 
-susie_plot_iteration(model, L, file_prefix, pos = NULL)
+susie_plot_iteration(model, L, file_prefix, pos = NULL, create_gif = FALSE)
 }
 \arguments{
 \item{model}{A SuSiE fit, typically an output from
@@ -59,6 +59,8 @@ specified as location where legends should be added, e.g.,
 \item{file_prefix}{Prefix to path of output plot file. If not
 specified, the plot, or plots, will be saved to a temporary
 directory generated using \code{\link{tempdir}}.}
+
+\item{create_gif}{Generate a GIF file for all iterations combined. Default to FALSE.}
 }
 \value{
 Invisibly returns \code{NULL}.

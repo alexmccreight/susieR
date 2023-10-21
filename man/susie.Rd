@@ -67,6 +67,7 @@ susie_suff_stat(
   refine = FALSE,
   check_prior = FALSE,
   n_purity = 100,
+  correct_zR_discrepancy = FALSE,
   ...
 )
 }

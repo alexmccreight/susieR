@@ -61,7 +61,7 @@
 #'
 #' \item{coverage}{The nominal coverage specified for each CS.}
 #'
-#' \item{purity}{If \code{X} or \code{Xcorr} iis provided), the
+#' \item{purity}{If \code{X} or \code{Xcorr} is provided), the
 #'   purity of each CS.}
 #'
 #' \item{cs_index}{If \code{X} or \code{Xcorr} is provided) the index
@@ -224,24 +224,28 @@ susie_get_posterior_samples = function (susie_fit, num_samples) {
 #' @param X n by p matrix of values of the p variables (covariates) in
 #'   n samples. When provided, correlation between variables will be
 #'   computed and used to remove CSs whose minimum correlation among
-#'   variables is smaller than \code{min_abs_corr}.
+#'   variables is smaller than \code{min_abs_corr} (or \code{median_abs_corr}).
 #'
 #' @param Xcorr p by p matrix of correlations between variables
 #'   (covariates). When provided, it will be used to remove CSs whose
 #'   minimum correlation among variables is smaller than
-#'   \code{min_abs_corr}.
+#'   \code{min_abs_corr} (or \code{median_abs_corr}).
 #'
 #' @param coverage A number between 0 and 1 specifying desired
 #'   coverage of each CS.
 #'
 #' @param min_abs_corr A "purity" threshold for the CS. Any CS that
 #'   contains a pair of variables with correlation less than this
-#'   threshold will be filtered out and not reported.
+#'   threshold will be filtered out and not reported. Default set to 0.5.
+#' 
+#' @param median_abs_corr An alternative "purity" threshold for the CS. Median
+#'   correlation between pairs of variables in a CS less than this
+#'   threshold will be filtered out and not reported. When both min_abs_corr 
+#'   and median_abs_corr are set, a CS will only be removed if it fails both 
+#'   filters. Default set to NULL to be compatible with Wang et al (2020) JRSS-B 
+#'   but it is recommended to set it to 0.8 in practice. 
 #'
 #' @param dedup If \code{dedup = TRUE}, remove duplicate CSs.
-#'
-#' @param squared If \code{squared = TRUE}, report min, mean and
-#' median of squared correlation instead of the absolute correlation.
 #'
 #' @param check_symmetric If \code{check_symmetric = TRUE}, perform a
 #'   check for symmetry of matrix \code{Xcorr} when \code{Xcorr} is
@@ -260,8 +264,8 @@ susie_get_posterior_samples = function (susie_fit, num_samples) {
 #' @export
 #'
 susie_get_cs = function (res, X = NULL, Xcorr = NULL, coverage = 0.95,
-                         min_abs_corr = 0.5, dedup = TRUE, squared = FALSE,
-                         check_symmetric = TRUE, n_purity = 100, use_rfast) {
+                         min_abs_corr = 0.5, median_abs_corr = NULL, 
+                         dedup = TRUE, check_symmetric = TRUE, n_purity = 100, use_rfast) {
   if (!is.null(X) && !is.null(Xcorr))
     stop("Only one of X or Xcorr should be specified")
   if (check_symmetric) {
@@ -314,15 +318,14 @@ susie_get_cs = function (res, X = NULL, Xcorr = NULL, coverage = 0.95,
       else
         purity =
           rbind(purity,
-            matrix(get_purity(cs[[i]],X,Xcorr,squared,n_purity,use_rfast),1,3))
+            matrix(get_purity(cs[[i]],X,Xcorr,n_purity,use_rfast),1,3))
     }
     purity = as.data.frame(purity)
-    if (squared)
-      colnames(purity) = c("min.sq.corr","mean.sq.corr","median.sq.corr")
+    colnames(purity) = c("min.abs.corr","mean.abs.corr","median.abs.corr")
+    if (is.null(median_abs_corr)) 
+      is_pure = which(purity[,1] >= min_abs_corr)
     else
-      colnames(purity) = c("min.abs.corr","mean.abs.corr","median.abs.corr")
-    threshold = ifelse(squared,min_abs_corr^2,min_abs_corr)
-    is_pure = which(purity[,1] >= threshold)
+      is_pure = which(purity[,1] >= min_abs_corr | purity[,2] >= median_abs_corr)
     if (length(is_pure) > 0) {
       cs        = cs[is_pure]
       purity    = purity[is_pure,]
@@ -357,9 +360,7 @@ susie_get_cs = function (res, X = NULL, Xcorr = NULL, coverage = 0.95,
 #'   variables is smaller than \code{min_abs_corr}.
 #'
 #' @param Xcorr p by p matrix of correlations between variables
-#'   (covariates). When provided, it will be used to remove CSs whose
-#'   minimum correlation among variables is smaller than
-#'   \code{min_abs_corr}.
+#'   (covariates).
 #'
 #' @param max When \code{max = FAFLSE}, return a matrix of CS
 #'   correlations. When \code{max = TRUE}, return only the maximum
@@ -476,7 +477,7 @@ n_in_CS = function(res, coverage = 0.9) {
 # Subsample and compute min, mean, median and max abs corr.
 #
 #' @importFrom stats median
-get_purity = function (pos, X, Xcorr, squared = FALSE, n = 100,
+get_purity = function (pos, X, Xcorr, n = 100,
                        use_rfast) {
   if (missing(use_rfast))
     use_rfast = requireNamespace("Rfast",quietly = TRUE)
@@ -501,8 +502,6 @@ get_purity = function (pos, X, Xcorr, squared = FALSE, n = 100,
       value = abs(get_upper_tri(muffled_corr(X_sub)))
     } else
       value = abs(get_upper_tri(Xcorr[pos,pos]))
-    if (squared)
-      value = value^2
     return(c(min(value),
              sum(value)/length(value),
              get_median(value)))

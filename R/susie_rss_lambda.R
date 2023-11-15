@@ -19,7 +19,7 @@ susie_rss_lambda = function(z, R, maf = NULL, maf_thresh = 0,
                             estimate_prior_method = c("optim", "EM", "simple"),
                             check_null_threshold = 0, prior_tol = 1e-9,
                             max_iter = 100, s_init = NULL, intercept_value = 0,
-                            coverage = 0.95, min_abs_corr = 0.5,
+                            coverage = 0.95, min_abs_corr = 0.5, median_abs_corr = NULL,
                             tol = 1e-3, verbose = FALSE, track_fit = FALSE,
                             check_R = TRUE, check_z = FALSE) {
 
@@ -205,7 +205,7 @@ susie_rss_lambda = function(z, R, maf = NULL, maf_thresh = 0,
   if (!is.null(coverage) && !is.null(min_abs_corr)) {
     R = muffled_cov2cor(R)
     s$sets = susie_get_cs(s,coverage = coverage,Xcorr = R,
-                          min_abs_corr = min_abs_corr)
+                          min_abs_corr = min_abs_corr, median_abs_corr = median_abs_corr)
     s$pip = susie_get_pip(s,prune_by_cs = FALSE,prior_tol = prior_tol)
   }
   if (!is.null(names(z))) {

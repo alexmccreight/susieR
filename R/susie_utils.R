@@ -523,7 +523,7 @@ muffled_corr = function (x)
 #' @importFrom stats cov2cor
 #' @keywords internal
 muffled_cov2cor = function (x)
-  withCallingHandlers(cov2cor(x),
+  withCallingHandlers(correlateR::cov2corArma(x),
     warning = function(w) {
       if (grepl("had 0 or NA entries; non-finite result is doubtful",
                 w$message))

@@ -20,29 +20,32 @@ single_effect_regression_rss =
                                     alpha = NULL,post_mean2 = NULL,V_init = V,
                                     check_null_threshold=check_null_threshold)
 
+  # log(po) = log(BF * prior) for each SNP
   lbf = sapply(1:p, function(j)
     -0.5 * log(1 + (V/shat2[j])) +
      0.5 * (V/(1 + (V/shat2[j]))) * sum(attr(Sigma,"SinvRj")[,j] * z)^2
   )
+  lpo = lbf + log(prior_weights + sqrt(.Machine$double.eps))
 
   # Deal with special case of infinite shat2 (e.g., happens if X does not
   # vary).
   lbf[is.infinite(shat2)] = 0 
+  lpo[is.infinite(shat2)] = 0
+  maxlpo = max(lpo)
 
-  # w is proportional to BF, but subtract max for numerical stability.
-  maxlbf = max(lbf)
-  w = exp(lbf-maxlbf)
-  
-  # posterior prob on each SNP
-  w_weighted = w * prior_weights
+  # w is proportional to
+  #
+  #   posterior odds = BF * prior,
+  #
+  # but subtract max for numerical stability.
+  w_weighted = exp(lpo - maxlpo)
   weighted_sum_w = sum(w_weighted)
   alpha = w_weighted / weighted_sum_w
-
   post_var = (attr(Sigma,"RjSinvRj") + 1/V)^(-1) # Posterior variance.
   post_mean = sapply(1:p,function(j) (post_var[j]) *
               sum(attr(Sigma,"SinvRj")[,j] * z))
   post_mean2 = post_var + post_mean^2 # Second moment.
-  lbf_model = maxlbf + log(weighted_sum_w) # Analogue of loglik in the
+  lbf_model = maxlpo + log(weighted_sum_w) # Analogue of loglik in the
                                            # non-summary case.
 
   if (optimize_V=="EM") 
@@ -61,16 +64,16 @@ loglik_rss = function (V, z, Sigma, prior_weights) {
   lbf = sapply(1:p,function (j)
     -0.5 * log(1 + (V/shat2[j])) +
      0.5 * (V/(1 + (V/shat2[j]))) * sum(attr(Sigma,"SinvRj")[,j] * z)^2)
+  lpo = lbf + log(prior_weights + sqrt(.Machine$double.eps))
   
   # Deal with special case of infinite shat2 (e.g., happens if X does
   # not vary).
   lbf[is.infinite(shat2)] = 0 
-
-  maxlbf = max(lbf)
-  w = exp(lbf-maxlbf) # w = BF/BFmax
-  w_weighted = w * prior_weights
+  lpo[is.infinite(shat2)] = 0
+  maxlpo = max(lpo)
+  w_weighted = exp(lpo - maxlpo)
   weighted_sum_w = sum(w_weighted)
-  return(log(weighted_sum_w) + maxlbf)
+  return(log(weighted_sum_w) + maxlpo)
 }
 
 neg.loglik_z.logscale_rss = function (lV, z, Sigma, prior_weights)

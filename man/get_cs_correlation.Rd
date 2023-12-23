@@ -16,9 +16,7 @@ computed and used to remove CSs whose minimum correlation among
 variables is smaller than \code{min_abs_corr}.}
 
 \item{Xcorr}{p by p matrix of correlations between variables
-(covariates). When provided, it will be used to remove CSs whose
-minimum correlation among variables is smaller than
-\code{min_abs_corr}.}
+(covariates).}
 
 \item{max}{When \code{max = FAFLSE}, return a matrix of CS
 correlations. When \code{max = TRUE}, return only the maximum

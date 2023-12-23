@@ -35,8 +35,8 @@ susie_get_cs(
   Xcorr = NULL,
   coverage = 0.95,
   min_abs_corr = 0.5,
+  median_abs_corr = NULL,
   dedup = TRUE,
-  squared = FALSE,
   check_symmetric = TRUE,
   n_purity = 100,
   use_rfast
@@ -68,24 +68,28 @@ distribution.}
 \item{X}{n by p matrix of values of the p variables (covariates) in
 n samples. When provided, correlation between variables will be
 computed and used to remove CSs whose minimum correlation among
-variables is smaller than \code{min_abs_corr}.}
+variables is smaller than \code{min_abs_corr} (or \code{median_abs_corr}).}
 
 \item{Xcorr}{p by p matrix of correlations between variables
 (covariates). When provided, it will be used to remove CSs whose
 minimum correlation among variables is smaller than
-\code{min_abs_corr}.}
+\code{min_abs_corr} (or \code{median_abs_corr}).}
 
 \item{coverage}{A number between 0 and 1 specifying desired
 coverage of each CS.}
 
 \item{min_abs_corr}{A "purity" threshold for the CS. Any CS that
 contains a pair of variables with correlation less than this
-threshold will be filtered out and not reported.}
+threshold will be filtered out and not reported. Default set to 0.5.}
+
+\item{median_abs_corr}{An alternative "purity" threshold for the CS. Median
+correlation between pairs of variables in a CS less than this
+threshold will be filtered out and not reported. When both min_abs_corr 
+and median_abs_corr are set, a CS will only be removed if it fails both 
+filters. Default set to NULL to be compatible with Wang et al (2020) JRSS-B 
+but it is recommended to set it to 0.8 in practice.}
 
 \item{dedup}{If \code{dedup = TRUE}, remove duplicate CSs.}
-
-\item{squared}{If \code{squared = TRUE}, report min, mean and
-median of squared correlation instead of the absolute correlation.}
 
 \item{check_symmetric}{If \code{check_symmetric = TRUE}, perform a
 check for symmetry of matrix \code{Xcorr} when \code{Xcorr} is
@@ -148,7 +152,7 @@ elements:
 
 \item{coverage}{The nominal coverage specified for each CS.}
 
-\item{purity}{If \code{X} or \code{Xcorr} iis provided), the
+\item{purity}{If \code{X} or \code{Xcorr} is provided), the
   purity of each CS.}
 
 \item{cs_index}{If \code{X} or \code{Xcorr} is provided) the index

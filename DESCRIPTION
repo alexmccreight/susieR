@@ -46,6 +46,7 @@ Suggests:
     knitr,
     rmarkdown,
     Rfast,
+    correlateR,
     cowplot
 LazyData: yes
 LazyDataCompression: xz

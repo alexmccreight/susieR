@@ -519,11 +519,15 @@ muffled_corr = function (x)
                       })
 
 # cov2cor function with specified warning muffled.
-#
-#' @importFrom stats cov2cor
 #' @keywords internal
 muffled_cov2cor = function (x)
-  withCallingHandlers(correlateR::cov2corArma(x),
+  withCallingHandlers(
+    {
+      if (requireNamespace("correlateR",quietly = TRUE))
+        return(correlateR::cov2cor(x))
+      else
+        return(cov2cor(x))
+    },
     warning = function(w) {
       if (grepl("had 0 or NA entries; non-finite result is doubtful",
                 w$message))

@@ -87,25 +87,20 @@ single_effect_regression =
         alpha = NULL,post_mean2 = NULL,V_init = V,
         check_null_threshold = check_null_threshold)
 
-  # log(po) = log(BF * prior) for each SNP
+  # log(bf) for each SNP
   lbf = dnorm(betahat,0,sqrt(V + shat2),log = TRUE) -
         dnorm(betahat,0,sqrt(shat2),log = TRUE)
-  lpo = lbf + log(prior_weights + sqrt(.Machine$double.eps))
 
   # Deal with special case of infinite shat2 (e.g., happens if X does
   # not vary).
   lbf[is.infinite(shat2)] = 0
-  lpo[is.infinite(shat2)] = 0
-  maxlpo = max(lpo)
-  
-  # w is proportional to
-  #
-  #   posterior odds = BF * prior,
-  #
-  # but subtract max for numerical stability.
-  w_weighted = exp(lpo - maxlpo)
+  maxlbf = max(lbf)
+
+  # w is proportional to BF, but subtract max for numerical stability.
+  w = exp(lbf - maxlbf)
 
   # Posterior prob for each SNP.
+  w_weighted = w * prior_weights
   weighted_sum_w = sum(w_weighted)
   alpha = w_weighted / weighted_sum_w
   post_var = (1/V + attr(X,"d")/residual_variance)^(-1) # Posterior variance.
@@ -113,7 +108,7 @@ single_effect_regression =
   post_mean2 = post_var + post_mean^2 # Second moment.
 
   # BF for single effect model.
-  lbf_model = maxlpo + log(weighted_sum_w)
+  lbf_model = maxlbf + log(weighted_sum_w)
   loglik = lbf_model + sum(dnorm(y,0,sqrt(residual_variance),log = TRUE))
 
   if(optimize_V == "EM")
@@ -171,6 +166,7 @@ optimize_prior_variance = function (optimize_V, betahat, shat2, prior_weights,
   if (loglik(0,betahat,shat2,prior_weights) +
       check_null_threshold >= loglik(V,betahat,shat2,prior_weights))
     V = 0
+
   return(V)
 }
 
@@ -187,17 +183,16 @@ loglik = function (V, betahat, shat2, prior_weights) {
   #log(bf) for each SNP
   lbf = dnorm(betahat,0,sqrt(V+shat2),log = TRUE) -
         dnorm(betahat,0,sqrt(shat2),log = TRUE)
-  lpo = lbf + log(prior_weights + sqrt(.Machine$double.eps))
 
   # Deal with special case of infinite shat2 (e.g., happens if X does
   # not vary).
   lbf[is.infinite(shat2)] = 0
-  lpo[is.infinite(shat2)] = 0
 
-  maxlpo = max(lpo)
-  w_weighted = exp(lpo - maxlpo)
+  maxlbf = max(lbf)
+  w = exp(lbf - maxlbf) # w = BF/BFmax
+  w_weighted = w * prior_weights
   weighted_sum_w = sum(w_weighted)
-  return(log(weighted_sum_w) + maxlpo)
+  return(log(weighted_sum_w) + maxlbf)
 }
 
 neg.loglik.logscale = function(lV,betahat,shat2,prior_weights)
@@ -210,15 +205,14 @@ loglik.grad = function(V, betahat, shat2, prior_weights) {
   # log(bf) for each SNP.
   lbf = dnorm(betahat,0,sqrt(V + shat2),log = TRUE) -
         dnorm(betahat,0,sqrt(shat2),log = TRUE)
-  lpo = lbf + log(prior_weights + sqrt(.Machine$double.eps))
 
   # Deal with special case of infinite shat2 (e.g., happens if X does
   # not vary).
   lbf[is.infinite(shat2)] = 0
-  lpo[is.infinite(shat2)] = 0
 
-  maxlpo = max(lpo)
-  w_weighted = exp(lpo - maxlpo)
+  maxlbf = max(lbf)
+  w = exp(lbf - maxlbf) # w = BF/BFmax
+  w_weighted = w * prior_weights
   weighted_sum_w = sum(w_weighted)
   alpha = w_weighted / weighted_sum_w
   return(sum(alpha * lbf.grad(V,shat2,betahat^2/shat2)))

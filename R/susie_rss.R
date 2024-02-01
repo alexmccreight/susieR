@@ -205,7 +205,7 @@ susie_rss = function (z, R, n, bhat, shat, var_y,
                     "X before computing R.",style = "hint")
 
   # Check input R.
-  if (missing(z))
+  if (missing(z) | is.null(z))
     p <- length(bhat)
   else
     p <- length(z)
@@ -214,15 +214,15 @@ susie_rss = function (z, R, n, bhat, shat, var_y,
                   "agree with expected (",p," x ",p,")"))
 
   # Check input n.
-  if (!missing(n))
+  if (!(missing(n) | is.null(n)))
     if (n <= 1)
       stop("n must be greater than 1")
 
   # Check inputs z, bhat and shat. Note that bhat is no longer used
   # after this step.
-  if (sum(c(missing(z),missing(bhat) || missing(shat))) != 1)
+  if (sum(c((missing(z) | is.null(z)),(missing(bhat) | is.null(bhat)) || (missing(shat) | is.null(shat)))) != 1)
     stop("Please provide either z or (bhat, shat), but not both")
-  if (missing(z)) {
+  if (missing(z) | is.null(z)) {
     if (length(shat) == 1)
       shat = rep(shat,length(bhat))
     if (length(bhat) != length(shat))
@@ -238,7 +238,7 @@ susie_rss = function (z, R, n, bhat, shat, var_y,
   z[is.na(z)] = 0
 
   # When n is provided, compute the PVE-adjusted z-scores.
-  if (!missing(n)) {
+  if (!(missing(n) | is.null(z))) {
     adj = (n-1)/(z^2 + n - 2)
     z   = sqrt(adj) * z
   }
@@ -255,7 +255,7 @@ susie_rss = function (z, R, n, bhat, shat, var_y,
 
   # Call susie_suff_stat. We call susie_suff_stat in two different
   # ways depending on whether n is provided.
-  if (missing(n)) {
+  if (missing(n) | is.null(n)) {
 
     # The sample size (n) is not provided, so use unadjusted z-scores.
     # The choice of n=2, yty=1 is mostly arbitrary except in that it
@@ -274,7 +274,7 @@ susie_rss = function (z, R, n, bhat, shat, var_y,
   } else {
 
     # The sample size (n) is provided, so use PVE-adjusted z-scores.
-    if (!missing(shat) & !missing(var_y)) {
+    if (!(missing(shat) | is.null(shat)) & !(missing(var_y) | is.null(var_y))) {
 
       # var_y, shat (and bhat) are provided, so the effects are on the
       # *original scale*.

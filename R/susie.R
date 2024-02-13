@@ -526,10 +526,11 @@ susie = function (X,y,L = min(10,ncol(X)),
         ## if null_weight is specified, and the extra 0 column is not
         ## removed from compute_univariate_zscore, we remove it here
         X = X[,1:(ncol(X) - 1)]
-    } else
+    } else {
       pw_s = s$pi
-    conti = TRUE
-    while (conti & length(s$sets$cs)>0) {
+    }
+    resume = TRUE
+    while (resume & length(s$sets$cs)>0) {
       m = list()
       for(cs in 1:length(s$sets$cs)){
         pw_cs = pw_s
@@ -549,7 +550,7 @@ susie = function (X,y,L = min(10,ncol(X)),
             residual_variance_upperbound = residual_variance_upperbound,
             min_abs_corr = min_abs_corr,
             median_abs_corr = median_abs_corr,
-            compute_univariate_zscore = compute_univariate_zscore,
+            compute_univariate_zscore = FALSE,
             na.rm = na.rm,max_iter = max_iter,tol = tol,verbose = FALSE,
             track_fit = FALSE,residual_variance_lowerbound = var(drop(y))/1e4,
             refine = FALSE)
@@ -567,18 +568,18 @@ susie = function (X,y,L = min(10,ncol(X)),
             residual_variance_upperbound = residual_variance_upperbound,
             min_abs_corr = min_abs_corr,
             median_abs_corr = median_abs_corr,
-            compute_univariate_zscore = compute_univariate_zscore,
+            compute_univariate_zscore = FALSE, 
             na.rm = na.rm,max_iter = max_iter,tol = tol,verbose = FALSE,
             track_fit = FALSE,residual_variance_lowerbound = var(drop(y))/1e4,
             refine = FALSE)
         m = c(m,list(s3))
       }
       if(length(m) == 0){
-        conti = FALSE
+        resume = FALSE
       }else{
         elbo = sapply(m,function(x) susie_get_objective(x))
         if ((max(elbo) - susie_get_objective(s)) <= 0)
-          conti = FALSE
+          resume = FALSE
         else
           s = m[[which.max(elbo)]]
       }

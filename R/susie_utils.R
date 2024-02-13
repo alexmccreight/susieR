@@ -325,7 +325,7 @@ susie_get_cs = function (res, X = NULL, Xcorr = NULL, coverage = 0.95,
     if (is.null(median_abs_corr)) 
       is_pure = which(purity[,1] >= min_abs_corr)
     else
-      is_pure = which(purity[,1] >= min_abs_corr | purity[,2] >= median_abs_corr)
+      is_pure = which(purity[,1] >= min_abs_corr | purity[,3] >= median_abs_corr)
     if (length(is_pure) > 0) {
       cs        = cs[is_pure]
       purity    = purity[is_pure,]

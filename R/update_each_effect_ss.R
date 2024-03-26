@@ -174,3 +174,4 @@ get_non_zero_effects_proxy = function(alpha, exclude_index, tol=1E-4) {
   max_indices = apply(alpha, 1, FUN = which.max)
   return(unique(max_indices))
 }
+                       

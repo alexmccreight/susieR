@@ -187,12 +187,13 @@
 #'
 #' @export
 #'
-susie_rss = function(z, R, n, bhat, shat, var_y,
-                     z_ld_weight = 0,
-                     estimate_residual_variance = FALSE,
-                     prior_variance = 50,
-                     check_prior = TRUE, ...) {
-  
+susie_rss = function (z, R, n, bhat, shat, var_y,
+                      z_ld_weight = 0,
+                      estimate_residual_variance = FALSE,
+                      prior_variance = 50,
+                      check_prior = TRUE, 
+                      correct_zR_discrepancy = FALSE, ...) {
+
   if (estimate_residual_variance)
     warning_message("For estimate_residual_variance = TRUE, please check ",
                     "that R is the \"in-sample\" LD matrix; that is, the ",
@@ -201,23 +202,23 @@ susie_rss = function(z, R, n, bhat, shat, var_y,
                     "statistics. Also note, when covariates are included in ",
                     "the univariate regressions that produced the summary ",
                     "statistics, also consider removing these effects from ",
-                    "X before computing R.", style = "hint")
-  
+                    "X before computing R.",style = "hint")
+
   # Check input R.
-  if (missing(z))
+  if (missing(z) | is.null(z))
     p <- length(bhat)
   else
     p <- length(z)
   if (nrow(R) != p)
-    stop(paste0("The dimension of R (", nrow(R), " x ", ncol(R), ") does not ",
-                "agree with expected (", p, " x ", p, ")"))
-  
+      stop(paste0("The dimension of R (",nrow(R)," x ",ncol(R),") does not ",
+                  "agree with expected (",p," x ",p,")"))
+
   # Check input n.
   if (!missing(n))
     if (!is.null(n))
       if (n <= 1)
         stop("n must be greater than 1")
-  
+
   # Check inputs z, bhat and shat. Note that bhat is no longer used
   # after this step.
   if (sum(c(missing(z), missing(bhat) || missing(shat))) != 1)
@@ -244,17 +245,17 @@ susie_rss = function(z, R, n, bhat, shat, var_y,
       z = sqrt(adj) * z
     }
   }
-  
+
   # Modify R by z_ld_weight; this modification was designed to ensure
   # the column space of R contained z, but susie_suff_stat does not
   # require this, and is no longer recommended.
   if (z_ld_weight > 0) {
     warning_message("As of version 0.11.0, use of non-zero z_ld_weight is no longer ",
-                    "recommended")
-    R = muffled_cov2cor((1 - z_ld_weight) * R + z_ld_weight * tcrossprod(z))
-    R = (R + t(R)) / 2
+            "recommended")
+    R = muffled_cov2cor((1-z_ld_weight)*R + z_ld_weight*tcrossprod(z))
+    R = (R + t(R))/2
   }
-  
+
   # Call susie_suff_stat. We call susie_suff_stat in two different
   # ways depending on whether n is provided.
   if (missing(n)) {
@@ -269,7 +270,8 @@ susie_rss = function(z, R, n, bhat, shat, var_y,
     s = susie_suff_stat(XtX = R, Xty = z, n = 2, yty = 1,
                         scaled_prior_variance = prior_variance,
                         estimate_residual_variance = estimate_residual_variance,
-                        standardize = FALSE, check_prior = check_prior, ...)
+                        standardize = FALSE, check_prior = check_prior, 
+                        correct_zR_discrepancy = correct_zR_discrepancy, ...)
   } else if (is.null(n)) {
     warning_message("Providing the sample size (n), or even a rough estimate of n, ",
                     "is highly recommended. Without n, the implicit assumption is ",
@@ -277,7 +279,8 @@ susie_rss = function(z, R, n, bhat, shat, var_y,
     s = susie_suff_stat(XtX = R, Xty = z, n = 2, yty = 1,
                         scaled_prior_variance = prior_variance,
                         estimate_residual_variance = estimate_residual_variance,
-                        standardize = FALSE, check_prior = check_prior, ...)
+                        standardize = FALSE, check_prior = check_prior, 
+                        correct_zR_discrepancy = correct_zR_discrepancy, ...)
   } else {
     
     # The sample size (n) is provided, so use PVE-adjusted z-scores.
@@ -306,8 +309,24 @@ susie_rss = function(z, R, n, bhat, shat, var_y,
     }
     s = susie_suff_stat(XtX = XtX, Xty = Xty, n = n, yty = (n - 1) * var_y,
                         estimate_residual_variance = estimate_residual_variance,
-                        check_prior = check_prior, ...)
+                        check_prior = check_prior, 
+                        correct_zR_discrepancy = correct_zR_discrepancy, ...)
+  }
+    
+  if (correct_zR_discrepancy) {
+    s$zR_outliers = sort(s$correct_zR_discrepancy$outlier_index)
+    s$correct_zR_discrepancy = NULL
+    # Renormalize alpha matrix
+    # FIXME: This is a bit ugly
+    process_alpha <- function(alpha_i) {
+      min_val <- min(alpha_i[alpha_i > 0])
+      alpha_i[alpha_i == 0] <- min_val
+      alpha_i <- alpha_i / sum(alpha_i)
+      return(alpha_i)
+    }
+    s$alpha <- t(apply(s$alpha, 1, process_alpha))
+    s$pip <- susie_get_pip(s,prune_by_cs = FALSE)
+    names(s$pip) <- colnames(s$alpha)
   }
   return(s)
 }
-

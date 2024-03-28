@@ -214,33 +214,36 @@ susie_rss = function (z, R, n, bhat, shat, var_y,
                   "agree with expected (",p," x ",p,")"))
 
   # Check input n.
-  if (!(missing(n) | is.null(n)))
-    if (n <= 1)
-      stop("n must be greater than 1")
+  if (!missing(n))
+    if (!is.null(n))
+      if (n <= 1)
+        stop("n must be greater than 1")
 
   # Check inputs z, bhat and shat. Note that bhat is no longer used
   # after this step.
-  if (sum(c((missing(z) | is.null(z)),(missing(bhat) | is.null(bhat)) || (missing(shat) | is.null(shat)))) != 1)
+  if (sum(c(missing(z), missing(bhat) || missing(shat))) != 1)
     stop("Please provide either z or (bhat, shat), but not both")
-  if (missing(z) | is.null(z)) {
+  if (missing(z)) {
     if (length(shat) == 1)
-      shat = rep(shat,length(bhat))
+      shat = rep(shat, length(bhat))
     if (length(bhat) != length(shat))
       stop("The lengths of bhat and shat do not agree")
     if (anyNA(bhat) || anyNA(shat))
       stop("bhat, shat cannot have missing values")
     if (any(shat <= 0))
       stop("shat cannot have zero or negative elements")
-    z = bhat/shat
+    z = bhat / shat
   }
   if (length(z) < 1)
     stop("Input vector z should have at least one element")
   z[is.na(z)] = 0
-
+  
   # When n is provided, compute the PVE-adjusted z-scores.
-  if (!(missing(n) | is.null(z))) {
-    adj = (n-1)/(z^2 + n - 2)
-    z   = sqrt(adj) * z
+  if (!missing(n)) {
+    if (!is.null(n)) {
+      adj = (n - 1) / (z^2 + n - 2)
+      z = sqrt(adj) * z
+    }
   }
 
   # Modify R by z_ld_weight; this modification was designed to ensure
@@ -255,46 +258,61 @@ susie_rss = function (z, R, n, bhat, shat, var_y,
 
   # Call susie_suff_stat. We call susie_suff_stat in two different
   # ways depending on whether n is provided.
-  if (missing(n) | is.null(n)) {
-
+  if (missing(n)) {
+    
     # The sample size (n) is not provided, so use unadjusted z-scores.
     # The choice of n=2, yty=1 is mostly arbitrary except in that it
     # ensures var(y) = yty/(n-1) = 1, and because of this
     # scaled_prior_variance = prior_variance.
     warning_message("Providing the sample size (n), or even a rough estimate of n, ",
-            "is highly recommended. Without n, the implicit assumption is ",
-            "n is large (Inf) and the effect sizes are small (close to zero).")
-    s = susie_suff_stat(XtX = R,Xty = z,n = 2,yty = 1,
+                    "is highly recommended. Without n, the implicit assumption is ",
+                    "n is large (Inf) and the effect sizes are small (close to zero).")
+    s = susie_suff_stat(XtX = R, Xty = z, n = 2, yty = 1,
                         scaled_prior_variance = prior_variance,
                         estimate_residual_variance = estimate_residual_variance,
-                        standardize = FALSE,
-                        check_prior = check_prior,
-                        correct_zR_discrepancy = correct_zR_discrepancy,
-                        ...)
+                        standardize = FALSE, check_prior = check_prior, 
+                        correct_zR_discrepancy = correct_zR_discrepancy, ...)
+  } else if (is.null(n)) {
+    warning_message("Providing the sample size (n), or even a rough estimate of n, ",
+                    "is highly recommended. Without n, the implicit assumption is ",
+                    "n is large (Inf) and the effect sizes are small (close to zero).")
+    s = susie_suff_stat(XtX = R, Xty = z, n = 2, yty = 1,
+                        scaled_prior_variance = prior_variance,
+                        estimate_residual_variance = estimate_residual_variance,
+                        standardize = FALSE, check_prior = check_prior, 
+                        correct_zR_discrepancy = correct_zR_discrepancy, ...)
   } else {
-
+    
     # The sample size (n) is provided, so use PVE-adjusted z-scores.
-    if (!(missing(shat) | is.null(shat)) & !(missing(var_y) | is.null(var_y))) {
-
-      # var_y, shat (and bhat) are provided, so the effects are on the
-      # *original scale*.
-      XtXdiag = var_y * adj/(shat^2)
-      XtX = t(R * sqrt(XtXdiag)) * sqrt(XtXdiag)
-      XtX = (XtX + t(XtX))/2
-      Xty = z * sqrt(adj) * var_y / shat
+    if (!missing(shat) & !missing(var_y)) {
+      if (!is.null(shat) & !is.null(var_y)) {
+        
+        # var_y, shat (and bhat) are provided, so the effects are on the
+        # *original scale*.
+        XtXdiag = var_y * adj / (shat^2)
+        XtX = t(R * sqrt(XtXdiag)) * sqrt(XtXdiag)
+        XtX = (XtX + t(XtX)) / 2
+        Xty = z * sqrt(adj) * var_y / shat
+      } else {
+        # The effects are on the *standardized* X, y scale.
+        XtX = (n - 1) * R
+        Xty = sqrt(n - 1) * z
+        var_y = 1
+        
+      }
     } else {
-
+      
       # The effects are on the *standardized* X, y scale.
-      XtX = (n-1)*R
-      Xty = sqrt(n-1)*z
+      XtX = (n - 1) * R
+      Xty = sqrt(n - 1) * z
       var_y = 1
     }
-    s = susie_suff_stat(XtX = XtX,Xty = Xty,n = n,yty = (n-1)*var_y,
+    s = susie_suff_stat(XtX = XtX, Xty = Xty, n = n, yty = (n - 1) * var_y,
                         estimate_residual_variance = estimate_residual_variance,
-                        check_prior = check_prior,
-                        correct_zR_discrepancy = correct_zR_discrepancy,
-                        ...)
+                        check_prior = check_prior, 
+                        correct_zR_discrepancy = correct_zR_discrepancy, ...)
   }
+    
   if (correct_zR_discrepancy) {
     s$zR_outliers = sort(s$correct_zR_discrepancy$outlier_index)
     s$correct_zR_discrepancy = NULL

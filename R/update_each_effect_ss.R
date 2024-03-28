@@ -10,6 +10,8 @@
 #   compare likelihood between current estimate and zero the null
 # 
 #' @importFrom Matrix diag
+
+# this should be the most conservative version, r^2 filter is a must -- and multi p value is adjusted
 update_each_effect_ss = function (XtX, Xty, s_init,
                                   estimate_prior_variance = FALSE,
                                   estimate_prior_method = "optim",
@@ -91,16 +93,14 @@ detect_zR_discrepancy <- function(c_index, exclude_index, z, Rcov, r2=0.6, p=1E-
   # > qchisq(1-1E-4,df=1)
   # [1] 15.13671
   # DENTIST-S test, $S(\hat{z}_1, \hat{z}_2, r_{12}) = \frac{(\hat{z}_1 - r_{12}\hat{z}_2)^2}{1-r_{12}^2} \sim \chi^2_{(1)}$
-  dentist_s = function(z1,z2,r12) {
-    (z1 - r12 * z2)^2 / (1 - r12^2)
+  dentist_pval = function(z1,z2,r12) {
+    chisq_stat = (z1 - r12 * z2)^2 / (1 - r12^2)
+    return(pchisq(chisq_stat, df = 1, lower.tail = FALSE))
   }
   is_sign_flip = function(z1,z2,r12) {
     ifelse(sign(z1) * sign(z2) * sign(r12) < 0, TRUE, FALSE)
   }
 
-  # cat(paste("Non-zero set", paste(c_index, collapse=" "), "\n"))
-  # every time here I want to just capture one outlier
-  chisq_cutoff = qchisq(1-p, df = 1)
   fudge_factor = 1E-4
   x = abs(z)
   if (length(exclude_index)) {
@@ -125,15 +125,18 @@ detect_zR_discrepancy <- function(c_index, exclude_index, z, Rcov, r2=0.6, p=1E-
   diag(R) = 1
   z_test = z[c_index]
   z_max = z[max_index]
-  stats_filter = sapply(1:length(z_test), function(i) dentist_s(z_max, z_test[i], R[1, i+1]))
-  # cat(paste("\t- Chisq statistics", paste(round(stats_filter,3), collapse=" "), "\n"))
-  stats_filter = (stats_filter > chisq_cutoff)
+  #EDIT by Haochen: We only multiple testing correction on the test that pass r^2 filter 
   r2_filter = sapply(1:length(z_test), function(i) R[1, i+1]^2)
   # cat(paste("\t- r2", paste(round(r2_filter,4), collapse=" "), "\n"))
   r2_filter = (r2_filter > r2)
+  r2_pass = which(!r2_filter)
+  stats_filter = sapply(1:length(z_test), function(i) dentist_pval(z_max, z_test[i], R[1, i+1]))
+  stats_filter[r2_pass] = p.adjust(stats_filter[r2_pass], method = "BH")
+  stats_filter = stats_filter < p
   sign_filter = sapply(1:length(z_test), function(i) is_sign_flip(z_max, z_test[i], R[1, i+1]))
   # cat(paste("\t- Sign flip", paste(sign_filter, collapse=" "), "\n"))
-  combined_filter = (stats_filter & (r2_filter | sign_filter))
+  # Edited by Haochen: r2 filter should also be applied to sign filter check
+  combined_filter = (r2_filter & ( stats_filter| sign_filter))
   if(any(combined_filter)) {
     return (max_index)
   } else {

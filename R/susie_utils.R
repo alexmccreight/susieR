@@ -608,6 +608,87 @@ susie_prune_single_effects = function (s,L = 0,V = NULL) {
   return(s)
 }
 
+#' Obtain Credible Sets with Attainable Coverage and Entropy Filtering
+#'
+#' @description This function computes credible sets (CSs) from a fitted SuSiE model,
+#'   filtering out CSs that do not meet the specified coverage and entropy thresholds.
+#'   It returns the CSs, their coverage, and the requested coverage.
+#'
+#' @param res A susie fit, typically an output from \code{\link{susie}} or one of its variants.
+#'
+#' @param coverage A number between 0 and 1 specifying the desired coverage of each CS. Default is 0.95.
+#'
+#' @param ethres The entropy threshold. CSs with entropy values greater than or equal to \code{log(ethres)}
+#'   will be filtered out. Default is 20.
+#'
+#' @param ... Additional arguments to be passed to \code{\link{susie_get_cs}}.
+#'
+#' @return A list with the following elements:
+#'   \describe{
+#'     \item{cs}{A list in which each element is a vector containing the indices of the variables in the CS.}
+#'     \item{coverage}{The coverage of each CS.}
+#'     \item{requested_coverage}{The requested coverage specified by the \code{coverage} argument.}
+#'   }
+#'
+#' @details The function performs the following steps:
+#'   \enumerate{
+#'     \item Computes the attainable coverage by selecting the maximum value in each column of \code{res$alpha}.
+#'     \item Calculates the coverage attained by summing the attainable coverage values for each row.
+#'     \item Calculates the entropy of each row in the attainable coverage matrix using the \code{entropy} function.
+#'     \item Filters the rows based on the conditions: coverage attained > \code{coverage} and entropy < \code{log(ethres)}.
+#'     \item If no rows satisfy the conditions, it returns a list with \code{cs = NULL}, \code{coverage = NULL},
+#'           and \code{requested_coverage = coverage}.
+#'     \item If rows satisfy the conditions, it creates a filtered version of the \code{res} object with only the selected rows.
+#'     \item Calls \code{susie_get_cs} with the filtered \code{res} object and the desired \code{coverage},
+#'           along with any additional arguments passed through \code{...}.
+#'   }
+#'
+#' @seealso \code{\link{susie_get_cs}} for obtaining credible sets without attainable coverage and entropy filtering.
+#'
+#' @examples
+#' \dontrun{
+#' # Fit a SuSiE model
+#' s <- susie(X, y, L = 10)
+#'
+#' # Obtain credible sets with attainable coverage and entropy filtering
+#' cs_attainable <- susie_get_cs_attainable(s, coverage = 0.9, ethres = 15)
+#' }
+#'
+#' @export
+susie_get_cs_attainable <- function(res, coverage = 0.95, ethres = 20, ...) {
+  entropy <- function(y) {
+    y <- y / sum(y)
+    H <- -sum(y[y > 0] * log(y[y > 0]))
+    return(H)
+  }
+  # Get attainable coverage
+  alpha_attainable <- apply(res$alpha, 2, function(x) ifelse(x == max(x), x, 0))
+  
+  # Calculate the coverage attained
+  coverage_attained <- rowSums(alpha_attainable)
+  
+  # Calculate the entropy of each row in alpha_attainable
+  entropy_vals <- apply(alpha_attainable, 1, entropy)
+  
+  # Filter the rows based on the conditions
+  keep_effects <- which(coverage_attained > coverage & entropy_vals < log(ethres))
+  
+  if (length(keep_effects) == 0) {
+    return(list(cs = NULL, coverage = NULL, requested_coverage = coverage))
+  }
+  
+  res_filtered <- res
+  res_filtered$alpha <- res$alpha[keep_effects, , drop = FALSE]
+  res_filtered$V <- res$V[keep_effects]
+  
+  # Set X and Xcorr to NULL if they are passed in ...
+  dot_args <- list(...)
+  if (!is.null(dot_args$X)) dot_args$X <- NULL
+  if (!is.null(dot_args$Xcorr)) dot_args$Xcorr <- NULL
+
+  return(do.call(susie_get_cs, c(list(res_filtered, coverage = coverage), dot_args)))
+}
+
 #' @title Estimate s in \code{susie_rss} Model Using Regularized LD
 #'
 #' @description The estimated s gives information about the

@@ -656,11 +656,7 @@ susie_prune_single_effects = function (s,L = 0,V = NULL) {
 #'
 #' @export
 susie_get_cs_attainable <- function(res, coverage = 0.95, ethres = 20, ...) {
-  entropy <- function(y) {
-    y <- y / sum(y)
-    H <- -sum(y[y > 0] * log(y[y > 0]))
-    return(H)
-  }
+
   # Get attainable coverage
   alpha_attainable <- do.call(cbind, apply(res$alpha, 2, function(x) ifelse(x == max(x), x, 0), simplify = FALSE))
   
@@ -1085,4 +1081,41 @@ warning_message = function(..., style=c("warning", "hint")) {
 apply_nonzeros <- function (X, f) {
   d <- summary(X)
   return(sparseMatrix(i = d$i,j = d$j,x = f(d$x),dims = dim(X)))
+}
+
+entropy <- function(y) {
+    if (length(which(y>0)) == 0) return(Inf)
+    y <- y / sum(y)
+    H <- -sum(y[y > 0] * log(y[y > 0]))
+    return(H)
+}
+
+# KL Divergence
+kl_divergence_p_q <- function(p, q) {
+  p[which(p < .Machine$double.xmin)] <- .Machine$double.xmin
+  q[which(q < .Machine$double.xmin)] <- .Machine$double.xmin
+  sum(p * (log(p)-log(q)))
+}
+
+# Jensen-Shannon Divergence
+js_divergence_p_q <- function(p, q) {
+  m <- (p + q) / 2
+  return((kl_divergence_p_q(p, m) + kl_divergence_p_q(q, m)) / 2)
+}
+
+get_non_zero_effects_proxy = function(alpha, exclude_index, tol=1E-4) {
+  test_flat <- function(p0, tol) {
+    p <- p0[p0 != 0]
+    q <- 1 / length(p)
+    js <- js_divergence_p_q(p, q)
+    return(js < tol)
+  }
+
+  # effects to drop if alpha is flat
+  to_drop <- which(apply(alpha, 1, test_flat, tol=tol))
+
+  if (length(to_drop)) alpha = alpha[-to_drop,,drop=F]
+  alpha [, exclude_index] = -Inf
+  max_indices = apply(alpha, 1, FUN = which.max)
+  return(unique(max_indices))
 }

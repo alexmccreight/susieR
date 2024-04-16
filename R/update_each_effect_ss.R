@@ -143,33 +143,3 @@ detect_zR_discrepancy <- function(c_index, exclude_index, z, Rcov, r2=0.6, p=1E-
     return (-1)
   }
 }
-
-# KL Divergence
-kl_divergence_p_q <- function(p, q) {
-  p[which(p < .Machine$double.xmin)] <- .Machine$double.xmin
-  q[which(q < .Machine$double.xmin)] <- .Machine$double.xmin
-  sum(p * (log(p)-log(q)))
-}
-
-# Jensen-Shannon Divergence
-js_divergence_p_q <- function(p, q) {
-  m <- (p + q) / 2
-  return((kl_divergence_p_q(p, m) + kl_divergence_p_q(q, m)) / 2)
-}
-
-get_non_zero_effects_proxy = function(alpha, exclude_index, tol=1E-4) {
-  test_flat <- function(p0, tol) {
-    p <- p0[p0 != 0]
-    q <- 1 / length(p)
-    js <- js_divergence_p_q(p, q)
-    return(js < tol)
-  }
-
-  # effects to drop if alpha is flat
-  to_drop <- which(apply(alpha, 1, test_flat, tol=tol))
-
-  if (length(to_drop)) alpha = alpha[-to_drop,,drop=F]
-  alpha [, exclude_index] = -Inf
-  max_indices = apply(alpha, 1, FUN = which.max)
-  return(unique(max_indices))
-}

@@ -662,7 +662,7 @@ susie_get_cs_attainable <- function(res, coverage = 0.95, ethres = 20, ...) {
     return(H)
   }
   # Get attainable coverage
-  alpha_attainable <- apply(res$alpha, 2, function(x) ifelse(x == max(x), x, 0), simplify = FALSE)
+  alpha_attainable <- do.call(rbind, apply(res$alpha, 2, function(x) ifelse(x == max(x), x, 0), simplify = FALSE))
   
   # Calculate the coverage attained
   coverage_attained <- rowSums(alpha_attainable)

@@ -165,13 +165,13 @@
 #'   credible set. The default, 0.5, corresponds to a squared
 #'   correlation of 0.25, which is a commonly used threshold for
 #'   genotype data in genetic studies.
-#' 
+#'
 #' @param median_abs_corr An alternative "purity" threshold for the CS. Median
 #'   correlation between pairs of variables in a CS less than this
-#'   threshold will be filtered out and not reported. When both min_abs_corr 
-#'   and median_abs_corr are set, a CS will only be removed if it fails both 
-#'   filters. Default set to NULL to be compatible with Wang et al (2020) JRSS-B 
-#'   but it is recommended to set it to 0.8 in practice. 
+#'   threshold will be filtered out and not reported. When both min_abs_corr
+#'   and median_abs_corr are set, a CS will only be removed if it fails both
+#'   filters. Default set to NULL to be compatible with Wang et al (2020) JRSS-B
+#'   but it is recommended to set it to 0.8 in practice.
 #'
 #' @param compute_univariate_zscore If \code{compute_univariate_zscore
 #'   = TRUE}, the univariate regression z-scores are outputted for each
@@ -313,6 +313,7 @@ susie = function (X,y,L = min(10,ncol(X)),
                    standardize = TRUE,
                    intercept = TRUE,
                    estimate_residual_variance = TRUE,
+                   residual_variance_method = c("MLE", "MoM"),
                    estimate_prior_variance = TRUE,
                    estimate_prior_method = c("optim", "EM", "simple"),
                    check_null_threshold = 0,
@@ -330,7 +331,8 @@ susie = function (X,y,L = min(10,ncol(X)),
                    track_fit = FALSE,
                    residual_variance_lowerbound = var(drop(y))/1e4,
                    refine = FALSE,
-                   n_purity = 100) {
+                   n_purity = 100,
+                   infinitesimal = FALSE) {
 
   # Process input estimate_prior_method.
   estimate_prior_method = match.arg(estimate_prior_method)
@@ -428,8 +430,13 @@ susie = function (X,y,L = min(10,ncol(X)),
   for (i in 1:max_iter) {
     if (track_fit)
       tracking[[i]] = susie_slim(s)
+
+    if (infinitesimal){
+      update_each_effect_inf(X,y,s,estimate_prior_variance,estimate_prior_method,
+                             check_null_threshold)}
+    else{
     s = update_each_effect(X,y,s,estimate_prior_variance,estimate_prior_method,
-                           check_null_threshold)
+                           check_null_threshold)}
     if (verbose)
       print(paste0("objective:",get_objective(X,y,s)))
 
@@ -443,13 +450,23 @@ susie = function (X,y,L = min(10,ncol(X)),
     }
 
     if (estimate_residual_variance) {
-      s$sigma2 = pmax(residual_variance_lowerbound,
-                      estimate_residual_variance(X,y,s))
+      if (residual_variance_method == "MoM") {
+        s$sigma2 = pmax(residual_variance_lowerbound,
+                        MoM(alpha = s$alpha, mu = s$mu, mu2 = s$mu2,
+                            sigmasq = s$sigma2, X = X, y = y, verbose = verbose))
+        s$sigma2 = pmin(residual_variance_upperbound, s$sigma2)
+      } else {
+        s$sigma2 = pmax(residual_variance_lowerbound,
+                        estimate_residual_variance(X, y, s))
+      }
+
       if (s$sigma2 > residual_variance_upperbound)
         s$sigma2 = residual_variance_upperbound
+
       if (verbose)
-        print(paste0("objective:",get_objective(X,y,s)))
+        print(paste0("objective:", get_objective(X, y, s)))
     }
+
   }
 
   # Remove first (infinite) entry, and trailing NAs.
@@ -482,7 +499,7 @@ susie = function (X,y,L = min(10,ncol(X)),
   if (!is.null(coverage) && !is.null(min_abs_corr)) {
     s$sets = susie_get_cs(s,coverage = coverage,X = X,
                           min_abs_corr = min_abs_corr,
-                          median_abs_corr = median_abs_corr, 
+                          median_abs_corr = median_abs_corr,
                           n_purity = n_purity)
     s$pip = susie_get_pip(s,prune_by_cs = FALSE,prior_tol = prior_tol)
   }
@@ -568,7 +585,7 @@ susie = function (X,y,L = min(10,ncol(X)),
             residual_variance_upperbound = residual_variance_upperbound,
             min_abs_corr = min_abs_corr,
             median_abs_corr = median_abs_corr,
-            compute_univariate_zscore = FALSE, 
+            compute_univariate_zscore = FALSE,
             na.rm = na.rm,max_iter = max_iter,tol = tol,verbose = FALSE,
             track_fit = FALSE,residual_variance_lowerbound = var(drop(y))/1e4,
             refine = FALSE)
